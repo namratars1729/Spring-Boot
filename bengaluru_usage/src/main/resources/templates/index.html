@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+                xmlns:th="http://www.w3.org/1999/xhtml">
+    <head>
+        <!-- Import Leaflet CSS -->
+        <link rel="stylesheet" th:href="@{app/leaflet/leaflet.css}">
+        <style>
+		    #map {
+		        height: calc(100vh - 0px) !important;
+		    }
+		</style>
+    </head>
+
+    <body>
+        <!-- Import Leaflet JS -->
+        <script th:src="@{app/jquery/dist/jquery.min.js}"></script>
+        <script th:src="@{app/leaflet/leaflet.js}"></script>
+        <script th:src="@{app/extscripts/js/Chart.js}"></script>
+
+        <div id="map"></div>
+
+        <script type="text/javascript">
+
+            // Url Endpoints
+            var dataUrl = "http://localhost:8080/waterconsumption";
+
+            // Basemap urls
+            var osm_humanitarian = L.tileLayer('http://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            });
+
+            var osm_map = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            });
+
+            var esri_dark_gray_base = L.tileLayer('http://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+                  attribution: '&copy; <a href="http://services.arcgisonline.com/arcgis/rest/services">ESRI</a> arcgisonline'
+            });
+
+            var world_street_map = L.tileLayer('http://services.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012'
+            });
+
+            var world_imagery = L.tileLayer('http://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            });
+
+            // Initialize the map
+            var map = L.map('map', {
+				  layers: [osm_humanitarian] // Default basemap
+			}).setView([12.972442, 77.580643], 12)  // Bengaluru
+
+            // Initialize basemaps
+            var baseLayers = {
+                "Open Street Map": osm_map,
+                "OSM Humanitarian": osm_humanitarian,
+                "Dark Gray Base": esri_dark_gray_base,
+                "World Street Map": world_street_map,
+                "World Imagery": world_imagery
+            };
+
+            // The wards will appear as circles on the map.
+            var circleStyle = {
+                weight: 1.0,
+                fillOpacity: 0.7
+            }
+        </script>
+
+        <!-- The top 10 wards -->
+        <script type="text/javascript">
+
+            // Create an empty Layer Group for the top 10 wards
+            var top10LayerGroup  = L.layerGroup().addTo(map);
+
+            // Url endpoint to get our top 10 dataset
+            var top10Url = "http://localhost:8080/waterusage/topten";
+
+            // JQuery to make a web service call to this url and retrieve data.
+        	// iterate over the returned dataset, style each record and add the record
+        	// to the top10LayerGroup Layer Group
+        	$.getJSON(top10Url, function(dataset) {
+        	    $.each(dataset, function(i, record) {
+        		    var wardNumber = record.wardNumber;
+        		    var wardName = record.wardName;
+        		    var avgMl = record.avgMl;
+        		    var latlng = L.latLng(record.geom.coordinates[1], record.geom.coordinates[0]);
+        			var scaleFactor = 1.70;
+        			if ( avgMl < 600 ){
+        			    scaleFactor = 4;
+        			}
+        			var radius = avgMl * scaleFactor;
+
+        			var wardCircle = L.circle( latlng, circleStyle );
+        			wardCircle.setStyle( {fillColor: '#5E1916'} );
+                    wardCircle.setRadius( radius );
+        		    wardCircle.bindPopup(
+        			    "<h4><b>WardNum:</b> " + wardNumber.toString() + "</h4>" +
+        				"<h4><b>WardName:</b> " + wardName.toString() + "</h4>" +
+        				"<h4><b>Water:</b> " + avgMl.toString() + " ML </h4>"
+        			);
+
+        		    wardCircle.on({
+                        mouseover: function(e) {
+                            this.setStyle( {color:'yellow'} );
+                            this.openPopup();
+                        },
+                        mouseout: function(e) {
+                             this.setStyle( {color:'#5E1916'} );
+                             this.closePopup();
+                        }
+                    });
+
+        		    top10LayerGroup.addLayer( wardCircle );
+        		});
+        	});
+        </script>
+
+        <!-- The highest usage -->
+        <script type="text/javascript">
+
+            // Create an empty Layer Group for the highest consumer
+            var highestLayerGroup  = L.layerGroup().addTo(map);
+
+            // Url endpoint to get the highest consumer
+            var highestUrl = "http://localhost:8080/waterusage/highest";
+
+            // JQuery to make a web service call to this url and retrieve data.-->
+        	// iterate over the returned dataset, style the record and add the record
+        	// to the highestLayerGroup Layer Group
+        	$.getJSON(highestUrl, function(dataset) {
+        	    $.each(dataset, function(i, record) {
+        		    var wardNumber = record.wardNumber;
+        		    var wardName = record.wardName;
+        		    var avgMl = record.avgMl;
+        		    var latlng = L.latLng(record.geom.coordinates[1], record.geom.coordinates[0]);
+        			var scaleFactor = 1.70;
+        			var radius = avgMl * scaleFactor;
+
+        			var highestCircle = L.circle( latlng, circleStyle );
+        			highestCircle.setStyle( {fillColor: '#D21404'} );
+                    highestCircle.setRadius( radius );
+        		    highestCircle.bindPopup(
+        			    "<h4><b>WardNum:</b> " + wardNumber.toString() + "</h4>" +
+        				"<h4><b>WardName:</b> " + wardName.toString() + "</h4>" +
+        				"<h4><b>Water:</b> " + avgMl.toString() + " ML </h4>"
+        			);
+
+        		    highestCircle.on({
+                        mouseover: function(e) {
+                            this.setStyle( {color:'yellow'} );
+                            this.openPopup();
+                        },
+                        mouseout: function(e) {
+                             this.setStyle( {color:'#D21404'} );
+                             this.closePopup();
+                        }
+                    });
+
+        		    highestLayerGroup.addLayer( highestCircle );
+        		});
+        	});
+        </script>
+
+        <!-- range 150-200 ML -->
+        <script type="text/javascript">
+            // Create an empty Layer Group for the range 150-200 ML
+            var range150_200LayerGroup  = L.layerGroup().addTo(map);
+
+            // Url endpoint to get the highest consumer
+            var range150_200Url = "http://localhost:8080/waterusage/range150-200";
+
+            // JQuery to make a web service call to this url and retrieve data
+        	// iterate over the returned dataset, style the record and add the record
+        	// to the highestLayerGroup Layer Group
+        	$.getJSON(range150_200Url, function(dataset) {
+        	    $.each(dataset, function(i, record) {
+        		    var wardNumber = record.wardNumber;
+        		    var wardName = record.wardName;
+        		    var avgMl = record.avgMl;
+        		    var latlng = L.latLng(record.geom.coordinates[1], record.geom.coordinates[0]);
+        			var scaleFactor = 3;
+        			var radius = avgMl * scaleFactor;
+
+        			var range150_200Circle = L.circle( latlng, circleStyle );
+        			range150_200Circle.setStyle( {fillColor: '#FFA500'} );
+                    range150_200Circle.setRadius( radius );
+        		    range150_200Circle.bindPopup(
+        			    "<h4><b>WardNum:</b> " + wardNumber.toString() + "</h4>" +
+        				"<h4><b>WardName:</b> " + wardName.toString() + "</h4>" +
+        				"<h4><b>Water:</b> " + avgMl.toString() + " ML </h4>"
+        			);
+
+        		    range150_200Circle.on({
+                        mouseover: function(e) {
+                            this.setStyle( {color:'yellow'} );
+                            this.openPopup();
+                        },
+                        mouseout: function(e) {
+                             this.setStyle( {color:'#FFA500'} );
+                             this.closePopup();
+                        }
+                    });
+
+        		    range150_200LayerGroup.addLayer( range150_200Circle );
+        		});
+        	});
+        </script>
+
+        <!-- range 70 - 130 ML -->
+        <script type="text/javascript">
+            // Create an empty Layer Group for the range 150-200 ML
+            var range70_130LayerGroup  = L.layerGroup().addTo(map);
+
+            // Url endpoint to get the highest consumer
+            var range70_130Url = "http://localhost:8080/waterusage/range70-130";
+
+            // JQuery to make a web service call to this url and retrieve data
+        	// iterate over the returned dataset, style the record and add the record
+        	// to the highestLayerGroup Layer Group
+        	$.getJSON( range70_130Url, function(dataset) {
+        	    $.each(dataset, function(i, record) {
+        		    var wardNumber = record.wardNumber;
+        		    var wardName = record.wardName;
+        		    var avgMl = record.avgMl;
+        		    var latlng = L.latLng(record.geom.coordinates[1], record.geom.coordinates[0]);
+        			var scaleFactor = 4;
+        			var radius = avgMl * scaleFactor;
+
+        			var range70_130Circle = L.circle( latlng, circleStyle );
+        			range70_130Circle.setStyle( {fillColor: '#0096FF'} );
+                    range70_130Circle.setRadius( radius );
+        		    range70_130Circle.bindPopup(
+        			    "<h4><b>WardNum:</b> " + wardNumber.toString() + "</h4>" +
+        				"<h4><b>WardName:</b> " + wardName.toString() + "</h4>" +
+        				"<h4><b>Water:</b> " + avgMl.toString() + " ML </h4>"
+        			);
+
+        		    range70_130Circle.on({
+                        mouseover: function(e) {
+                            this.setStyle( {color:'yellow'} );
+                            this.openPopup();
+                        },
+                        mouseout: function(e) {
+                             this.setStyle( {color:'#0096FF'} );
+                             this.closePopup();
+                        }
+                    });
+
+        		    range70_130LayerGroup.addLayer( range70_130Circle );
+        		});
+        	});
+        </script>
+
+        <!-- < 50 ML -->
+        <script type="text/javascript">
+            // Create an empty Layer Group for the range < 50 ML
+            var leastLayerGroup  = L.layerGroup().addTo(map);
+
+            // Url endpoint to get the highest consumer
+            var leastUrl = "http://localhost:8080/waterusage/least";
+
+            // JQuery to make a web service call to this url and retrieve data.
+        	// iterate over the returned dataset, style the record and add the record
+        	// to the highestLayerGroup Layer Group
+        	$.getJSON( leastUrl, function(dataset) {
+        	    $.each(dataset, function(i, record) {
+        		    var wardNumber = record.wardNumber;
+        		    var wardName = record.wardName;
+        		    var avgMl = record.avgMl;
+        		    var latlng = L.latLng(record.geom.coordinates[1], record.geom.coordinates[0]);
+        			var scaleFactor = 8;
+        			var radius = avgMl * scaleFactor;
+
+        			var leastCircle = L.circle( latlng, circleStyle );
+        			leastCircle.setStyle( {fillColor: '#089000'} );
+                    leastCircle.setRadius( radius );
+        		    leastCircle.bindPopup(
+        			    "<h4><b>WardNum:</b> " + wardNumber.toString() + "</h4>" +
+        				"<h4><b>WardName:</b> " + wardName.toString() + "</h4>" +
+        				"<h4><b>Water:</b> " + avgMl.toString() + " ML </h4>"
+        			);
+
+        		    leastCircle.on({
+                        mouseover: function(e) {
+                            this.setStyle( {color:'yellow'} );
+                            this.openPopup();
+                        },
+                        mouseout: function(e) {
+                             this.setStyle( {color:'#089000'} );
+                             this.closePopup();
+                        }
+                    });
+
+        		    leastLayerGroup.addLayer( leastCircle );
+        		});
+        	});
+        </script>
+
+        <!-- initialize the LayerGroups -->
+        <script>
+            // initialize the LayerGroups
+			var overlayLayers = {
+			    "Highest Usage Ward (> 600 ML)": highestLayerGroup,
+                "Top 10 Wards (230 - 300 ML)": top10LayerGroup,
+                "150 - 200 ML": range150_200LayerGroup,
+                "70 - 130 ML": range70_130LayerGroup,
+                "< 50 ML": leastLayerGroup
+			}
+
+		    // Add to the layers control
+		    L.control.layers(baseLayers, overlayLayers).addTo(map);
+        </script>
+
+    </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,14 @@
+> 600 ---->  highest
+> 230 and < 300 ----> top 10
+> 150 and < 200  ----> range150-200
+> 70 and < 130  ----> range70-130
+ < 50  ----> least
+
+localhost:8080/waterusage
+/highest
+/topten
+/range150-200
+/range70-130
+/least
+
+
